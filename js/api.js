@@ -92,6 +92,10 @@ const Session = {
    * Inicializa GSI (Google Identity Services) y renderiza el botón de sign-in
    * en el contenedor dado.
    */
+  /**
+   * Inicializa GSI UNA sola vez (idempotente) y renderiza el botón en el
+   * contenedor dado. En sucesivas llamadas, solo re-renderiza el botón.
+   */
   async initSignInButton(containerId) {
     if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes("REEMPLAZAR")) {
       document.getElementById(containerId).innerHTML =
@@ -99,17 +103,28 @@ const Session = {
       return;
     }
     await waitForGoogle();
-    window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: (response) => {
-        Session.set(response.credential);
-      },
-      auto_select: true,
-      cancel_on_tap_outside: false,
-    });
+
+    // Inicializar SOLO la primera vez (evita el warning de "initialize called multiple times")
+    if (!this._initialized) {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response) => {
+          if (response && response.credential) Session.set(response.credential);
+        },
+        // 👇 Claves para evitar los problemas con COOP/FedCM en GitHub Pages:
+        use_fedcm_for_prompt: false,  // desactivar FedCM (flujo nuevo de Chrome)
+        auto_select: false,           // no auto-loguear, queremos el botón visible
+        cancel_on_tap_outside: true,
+        itp_support: true,            // soporte para Safari ITP
+      });
+      this._initialized = true;
+    }
+
     const el = document.getElementById(containerId);
+    if (!el) return;
     el.innerHTML = "";
     window.google.accounts.id.renderButton(el, {
+      type: "standard",
       theme: "filled_black",
       size: "large",
       text: "signin_with",
@@ -117,9 +132,6 @@ const Session = {
       logo_alignment: "left",
       width: Math.min(360, el.offsetWidth || 340),
     });
-    // Mostrar One Tap también, por si ya está logueado en Google
-    window.google.accounts.id.prompt();
-    this._initialized = true;
   },
 };
 
@@ -167,13 +179,15 @@ function toast(msg, type = "info") {
 
 // Manejo global de errores de autenticación
 function handleApiError(err) {
+  console.error("[COLO API error]", err.code, err.message, err);
   if (err.code === "AUTH_REQUIRED" || String(err.message).includes("AUTH_REQUIRED")) {
-    toast("Tu sesión expiró. Volvé a iniciar sesión.", "err");
-    Session.clear();
+    toast("Sesión expirada: " + (err.message || "iniciá sesión de nuevo"), "err");
+    // Damos un segundo antes de limpiar, así el usuario alcanza a ver el toast
+    setTimeout(function () { Session.clear(); }, 1500);
     return;
   }
   if (err.code === "FORBIDDEN") {
-    toast("No tenés permisos para esta acción.", "err");
+    toast("No tenés permisos para esta acción: " + err.message, "err");
     return;
   }
   toast(err.message || String(err), "err");
