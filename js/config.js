@@ -23,8 +23,20 @@ const LISTAS = [
 ];
 
 const CARRERAS = [
-  "Medicina", "Nutrición", "Obstetricia", "Kinesiología",
-  "Fonoaudiología", "Terapia Ocupacional", "Musicoterapia", "Tecnicatura",
+  "Medicina",
+  "Enfermería",
+  "Kinesiología",
+  "Nutrición",
+  "Fonoaudiología",
+  "Obstetricia",
+  "Producción de Bioimágenes",
+  "Podología",
+  "Tec. Anestesia",
+  "Tec. Cosmetología",
+  "Tec. Hemoterapia",
+  "Tec. Instrumentación Quirúrgica",
+  "Tec. Prácticas Cardiológicas",
+  "Tec. Radiología",
 ];
 
 const DIAS = [
