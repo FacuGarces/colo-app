@@ -1,45 +1,52 @@
 // ===================================================================
-// fiscal.js — lógica de la página del fiscal
+// fiscal.js — lógica de la página del fiscal con Google OAuth
 // ===================================================================
 
-let currentUrna = null; // urna que se está editando en el modal
+let currentUrna = null;
 
-// ---------------- Identidad (MVP sin OAuth) ----------------
+// ---------------- Identidad (Google OAuth) ----------------
 function renderIdentity() {
-  const id = Identity.get();
-  const idSection = document.getElementById("identitySection");
+  const signInSection = document.getElementById("signInSection");
   const fSection = document.getElementById("fiscalSection");
   const badge = document.getElementById("fiscalBadge");
-  if (id && id.nombre && id.email) {
-    idSection.classList.add("hidden");
+  const profile = Session.getProfile();
+
+  if (Session.isActive() && profile) {
+    signInSection.classList.add("hidden");
     fSection.classList.remove("hidden");
     badge.classList.remove("hidden");
-    document.getElementById("fiscalBadgeName").textContent = id.nombre;
+    document.getElementById("fiscalBadgeName").textContent =
+      profile.given_name || profile.name || profile.email;
+    const pic = document.getElementById("fiscalBadgePic");
+    if (profile.picture) {
+      pic.src = profile.picture;
+      pic.style.display = "";
+    } else {
+      pic.style.display = "none";
+    }
     loadUrnas();
   } else {
-    idSection.classList.remove("hidden");
+    signInSection.classList.remove("hidden");
     fSection.classList.add("hidden");
     badge.classList.add("hidden");
+    // Renderizar botón de Google
+    Session.initSignInButton("googleSignInBtn").catch(err => {
+      console.error(err);
+      document.getElementById("googleSignInBtn").innerHTML =
+        `<div class="validation warn">Error cargando Google Sign-In: ${err.message}</div>`;
+    });
   }
 }
 
-document.getElementById("identityForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const nombre = document.getElementById("fNombre").value.trim();
-  const email = document.getElementById("fEmail").value.trim().toLowerCase();
-  if (!nombre || !email) return;
-  Identity.set({ nombre, email });
-  toast(`Bienvenido, ${nombre}`, "ok");
-  renderIdentity();
-});
+// Cuando cambia la sesión (login / logout), re-renderizar todo
+Session.onChange(renderIdentity);
 
 document.getElementById("btnLogout").addEventListener("click", () => {
-  if (!confirm("¿Cerrar identidad? Vas a tener que volver a cargar nombre y mail.")) return;
-  Identity.clear();
-  renderIdentity();
+  if (!confirm("¿Cerrar sesión?")) return;
+  Session.clear();
 });
 
-// ---------------- Abrir urna: selects + preview ----------------
+// ---------------- Abrir urna ----------------
 function fillOpenerSelects() {
   const selCarrera = document.getElementById("urnaCarrera");
   const selDia = document.getElementById("urnaDia");
@@ -47,7 +54,7 @@ function fillOpenerSelects() {
   selDia.innerHTML = DIAS.map(d => `<option value="${d.id}">${d.label}</option>`).join("");
 
   // Preseleccionar día actual si coincide
-  const today = new Date().getDay(); // 0=dom, 1=lun...
+  const today = new Date().getDay();
   const map = { 1: "lunes", 2: "martes", 3: "miercoles", 4: "jueves", 5: "viernes" };
   if (map[today]) selDia.value = map[today];
 
@@ -67,8 +74,7 @@ function updateIdPreview() {
   const c = document.getElementById("urnaCarrera").value;
   const d = document.getElementById("urnaDia").value;
   const n = document.getElementById("urnaNumero").value;
-  const id = buildUrnaId(c, d, n);
-  document.getElementById("previewId").textContent = id || "—";
+  document.getElementById("previewId").textContent = buildUrnaId(c, d, n) || "—";
 }
 
 function updateNowLabel() {
@@ -79,7 +85,6 @@ function updateNowLabel() {
     now.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 }
 
-// Abrir urna
 document.getElementById("btnAbrirUrna").addEventListener("click", async (e) => {
   const carrera = document.getElementById("urnaCarrera").value;
   const dia = document.getElementById("urnaDia").value;
@@ -92,7 +97,6 @@ document.getElementById("btnAbrirUrna").addEventListener("click", async (e) => {
   const urna = {
     urna_id: buildUrnaId(carrera, dia, numero),
     carrera, dia, dia_label: diaLabel, numero,
-    fiscal: Identity.get(),
   };
   const btn = e.currentTarget;
   btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Abriendo...';
@@ -102,25 +106,25 @@ document.getElementById("btnAbrirUrna").addEventListener("click", async (e) => {
     document.getElementById("urnaNumero").value = "";
     await loadUrnas();
   } catch (err) {
-    toast(err.message, "err");
+    handleApiError(err);
   } finally {
     btn.disabled = false; btn.innerHTML = "<span>Abrir urna</span>";
   }
 });
 
-// ---------------- Listar urnas del fiscal ----------------
+// ---------------- Listar urnas ----------------
 async function loadUrnas() {
-  const id = Identity.get();
-  if (!id) return;
+  if (!Session.isActive()) return;
   const listEl = document.getElementById("urnasList");
   const emptyEl = document.getElementById("urnasEmpty");
   listEl.innerHTML = '<div class="text-dim text-mono">Cargando...</div>';
   emptyEl.classList.add("hidden");
   try {
-    const urnas = await API.listarUrnas({ fiscal_email: id.email });
+    const urnas = await API.listarUrnas();
     renderUrnasList(urnas);
   } catch (err) {
     listEl.innerHTML = `<div class="validation warn">${err.message}</div>`;
+    handleApiError(err);
   }
 }
 
@@ -162,6 +166,7 @@ async function openRecuentoModal(urna_id) {
     renderRecuentoForm(urna);
   } catch (err) {
     body.innerHTML = `<div class="validation warn">${err.message}</div>`;
+    handleApiError(err);
   }
 }
 
@@ -172,14 +177,7 @@ function renderRecuentoForm(urna) {
     `${urna.dia_label || urna.dia} · ID ${urna.urna_id}`;
 
   const body = document.getElementById("modalBody");
-  body.innerHTML = CATEGORIAS.map(cat => renderCategoriaBlock(cat, urna)).join("") +
-    `<div id="validationHost"></div>`;
-
-  // Listener en todos los inputs para validar en vivo
-  body.querySelectorAll("input.num").forEach(inp => {
-    inp.addEventListener("input", validateTotals);
-  });
-  validateTotals();
+  body.innerHTML = CATEGORIAS.map(cat => renderCategoriaBlock(cat, urna)).join("");
 }
 
 function renderCategoriaBlock(cat, urna) {
@@ -200,7 +198,6 @@ function renderCategoriaBlock(cat, urna) {
         </div>
       </div>`;
   }).join("");
-
   const extrasHTML = CAMPOS_EXTRA.map(f => {
     const fieldName = `${cat.id}_${f.id}`;
     const value = urna[fieldName] || "";
@@ -211,7 +208,6 @@ function renderCategoriaBlock(cat, urna) {
                id="${fieldName}" name="${fieldName}" value="${value}" placeholder="0" />
       </div>`;
   }).join("");
-
   return `
     <div class="categoria-block">
       <h3 class="categoria-header">${cat.label}</h3>
@@ -221,38 +217,6 @@ function renderCategoriaBlock(cat, urna) {
     </div>`;
 }
 
-function validateTotals() {
-  // Chequea por cada categoría que suma(votos lista) + blancos + nulos + impugnados + recurridos === total_sobres
-  const host = document.getElementById("validationHost");
-  if (!host) return;
-  const msgs = [];
-  CATEGORIAS.forEach(cat => {
-    let sumaListas = 0;
-    LISTAS.forEach(l => {
-      const v = toInt(document.querySelector(`input[name="${cat.id}_${l.id}"]`)?.value);
-      sumaListas += v;
-    });
-    const blancos = toInt(document.querySelector(`input[name="${cat.id}_blancos"]`)?.value);
-    const nulos = toInt(document.querySelector(`input[name="${cat.id}_nulos"]`)?.value);
-    const imp = toInt(document.querySelector(`input[name="${cat.id}_impugnados"]`)?.value);
-    const rec = toInt(document.querySelector(`input[name="${cat.id}_recurridos"]`)?.value);
-    const sobres = toInt(document.querySelector(`input[name="${cat.id}_total_sobres"]`)?.value);
-    const total = sumaListas + blancos + nulos + imp + rec;
-    if (sobres > 0 || total > 0) {
-      if (sobres !== total) {
-        msgs.push({
-          type: "warn",
-          text: `${cat.label}: suma listas+blancos+nulos+imp+rec = ${total}, pero total sobres = ${sobres}. Diferencia: ${sobres - total}`
-        });
-      } else if (total > 0) {
-        msgs.push({ type: "ok", text: `${cat.label}: cuadra ✓ (${total} votos)` });
-      }
-    }
-  });
-  host.innerHTML = msgs.map(m => `<div class="validation ${m.type}">${m.text}</div>`).join("");
-}
-
-// Cerrar modal
 function closeModal() {
   document.getElementById("modalRecuento").classList.remove("open");
   currentUrna = null;
@@ -263,7 +227,6 @@ document.getElementById("modalRecuento").addEventListener("click", (e) => {
   if (e.target.classList.contains("modal-bg")) closeModal();
 });
 
-// Guardar recuento
 document.getElementById("btnGuardar").addEventListener("click", async (e) => {
   if (!currentUrna) return;
   const datos = {};
@@ -273,18 +236,17 @@ document.getElementById("btnGuardar").addEventListener("click", async (e) => {
   const btn = e.currentTarget;
   btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Guardando...';
   try {
-    await API.guardarRecuento(currentUrna.urna_id, datos, Identity.get());
+    await API.guardarRecuento(currentUrna.urna_id, datos);
     toast("Recuento guardado", "ok");
     closeModal();
     loadUrnas();
   } catch (err) {
-    toast(err.message, "err");
+    handleApiError(err);
   } finally {
     btn.disabled = false; btn.innerHTML = "Guardar recuento";
   }
 });
 
-// Eliminar urna
 document.getElementById("btnEliminarUrna").addEventListener("click", async () => {
   if (!currentUrna) return;
   if (!confirm(`¿Eliminar urna ${currentUrna.urna_id}? Esto borra también su recuento.`)) return;
@@ -294,7 +256,7 @@ document.getElementById("btnEliminarUrna").addEventListener("click", async () =>
     closeModal();
     loadUrnas();
   } catch (err) {
-    toast(err.message, "err");
+    handleApiError(err);
   }
 });
 
