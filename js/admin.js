@@ -1,57 +1,81 @@
 // ===================================================================
-// admin.js — panel de control admin
+// admin.js — panel admin con Google OAuth
+// El check de "es admin" lo hace el backend (whoami) y no el cliente
 // ===================================================================
 
-let adminIdentity = null;
 let allUrnas = [];
 let autoRefreshTimer = null;
 let currentEdit = null;
+let adminProfile = null; // { email, name, picture, isAdmin, ... } desde whoami
 
 // ---------------- Gate de admin ----------------
-function renderAdminGate() {
-  const id = Identity.get();
-  const gate = document.getElementById("adminGate");
+async function renderAdminGate() {
+  const signIn = document.getElementById("adminSignIn");
+  const notAdmin = document.getElementById("notAdminSection");
   const dash = document.getElementById("adminDashboard");
   const badge = document.getElementById("adminBadge");
+  const profile = Session.getProfile();
 
-  if (id && Identity.isAdmin(id)) {
-    adminIdentity = id;
-    gate.classList.add("hidden");
-    dash.classList.remove("hidden");
-    badge.classList.remove("hidden");
-    document.getElementById("adminBadgeName").textContent = id.nombre + " [admin]";
-    initDashboard();
-  } else {
-    gate.classList.remove("hidden");
+  if (!Session.isActive() || !profile) {
+    // No logueado: mostrar botón de Google
+    signIn.classList.remove("hidden");
+    notAdmin.classList.add("hidden");
     dash.classList.add("hidden");
     badge.classList.add("hidden");
+    Session.initSignInButton("adminSignInBtn").catch(err => {
+      console.error(err);
+      document.getElementById("adminSignInBtn").innerHTML =
+        `<div class="validation warn">Error: ${err.message}</div>`;
+    });
+    return;
+  }
+
+  // Logueado: preguntarle al backend si es admin
+  try {
+    const who = await API.whoami();
+    adminProfile = who;
+    if (!who.isAdmin) {
+      signIn.classList.add("hidden");
+      dash.classList.add("hidden");
+      badge.classList.add("hidden");
+      notAdmin.classList.remove("hidden");
+      document.getElementById("notAdminEmail").textContent = who.email;
+      return;
+    }
+    // Es admin: mostrar dashboard
+    signIn.classList.add("hidden");
+    notAdmin.classList.add("hidden");
+    dash.classList.remove("hidden");
+    badge.classList.remove("hidden");
+    document.getElementById("adminBadgeName").textContent =
+      (profile.given_name || profile.name || profile.email) + " [admin]";
+    const pic = document.getElementById("adminBadgePic");
+    if (profile.picture) { pic.src = profile.picture; pic.style.display = ""; }
+    else { pic.style.display = "none"; }
+    initDashboard();
+  } catch (err) {
+    handleApiError(err);
   }
 }
 
-document.getElementById("adminForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const nombre = document.getElementById("aNombre").value.trim();
-  const email = document.getElementById("aEmail").value.trim().toLowerCase();
-  const candidate = { nombre, email };
-  if (!Identity.isAdmin(candidate)) {
-    toast("Este mail no está en la lista de admins", "err");
-    return;
-  }
-  Identity.set(candidate);
-  toast(`Bienvenido, ${nombre} (admin)`, "ok");
-  renderAdminGate();
-});
+Session.onChange(renderAdminGate);
 
 document.getElementById("btnLogoutAdmin").addEventListener("click", () => {
   if (!confirm("¿Cerrar sesión admin?")) return;
-  Identity.clear();
   stopAutoRefresh();
-  renderAdminGate();
+  Session.clear();
+});
+
+document.getElementById("btnNotAdminSwitch").addEventListener("click", () => {
+  Session.clear();
 });
 
 // ---------------- Dashboard init ----------------
+let dashboardInited = false;
 function initDashboard() {
-  // Llenar selects de filtros
+  if (dashboardInited) { loadAll(); return; }
+  dashboardInited = true;
+
   const selCarrera = document.getElementById("filterCarrera");
   const selDia = document.getElementById("filterDia");
   selCarrera.innerHTML = '<option value="">Todas las carreras</option>' +
@@ -68,19 +92,18 @@ function initDashboard() {
   loadAll();
 }
 
-// ---------------- Carga de datos ----------------
 async function loadAll() {
   const btn = document.getElementById("btnRefreshAdmin");
   btn.disabled = true;
   const prev = btn.innerHTML;
   btn.innerHTML = '<span class="loader"></span> Cargando';
   try {
-    allUrnas = await API.listarUrnas({}); // sin filtro, filtramos en cliente
+    allUrnas = await API.listarUrnas({});
     document.getElementById("lastUpdated").textContent =
       "actualizado " + new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     renderAll();
   } catch (err) {
-    toast("Error: " + err.message, "err");
+    handleApiError(err);
   } finally {
     btn.disabled = false;
     btn.innerHTML = prev;
@@ -99,12 +122,10 @@ function getFilteredUrnas() {
   });
 }
 
-// ---------------- Render stats + tabla + urnas ----------------
 function renderAll() {
   const cat = document.getElementById("filterCategoria").value;
   document.getElementById("resultsCategoryLabel").textContent =
     CATEGORIAS.find(c => c.id === cat)?.label || "";
-
   const urnas = getFilteredUrnas();
   renderStats(urnas, cat);
   renderResultsTable(urnas, cat);
@@ -115,15 +136,13 @@ function renderAll() {
 function renderStats(urnas, cat) {
   const abiertas = urnas.filter(u => (u.estado || "abierta") === "abierta").length;
   const cerradas = urnas.filter(u => u.estado === "cerrada").length;
-  let votantes = 0, sobres = 0, otros = 0, listaTotal = 0;
+  let votantes = 0, sobres = 0, otros = 0;
   urnas.forEach(u => {
     votantes += toInt(u[`${cat}_total_votantes`]);
     sobres += toInt(u[`${cat}_total_sobres`]);
     otros += toInt(u[`${cat}_blancos`]) + toInt(u[`${cat}_nulos`])
            + toInt(u[`${cat}_impugnados`]) + toInt(u[`${cat}_recurridos`]);
-    LISTAS.forEach(l => listaTotal += toInt(u[`${cat}_${l.id}`]));
   });
-
   document.getElementById("statUrnas").textContent = fmt(urnas.length);
   document.getElementById("statUrnasSub").textContent = `${abiertas} abiertas · ${cerradas} cerradas`;
   document.getElementById("statVotantes").textContent = fmt(votantes);
@@ -180,8 +199,6 @@ function renderAdminUrnasList(urnas) {
     return;
   }
   empty.classList.add("hidden");
-
-  // Ordenar por fecha desc
   const sorted = [...urnas].sort((a,b) => (b.fecha_actualizacion || "").localeCompare(a.fecha_actualizacion || ""));
   list.innerHTML = sorted.map(u => `
     <div class="urna-card" data-id="${u.urna_id}">
@@ -193,13 +210,12 @@ function renderAdminUrnasList(urnas) {
       <div class="text-mono text-dim" style="font-size:0.7rem;">${u.urna_id}</div>
       <div class="text-mono text-dim" style="font-size:0.68rem;">fiscal: ${u.fiscal_nombre || '—'}</div>
     </div>`).join("");
-
   list.querySelectorAll(".urna-card").forEach(c => {
     c.addEventListener("click", () => openEditModal(c.dataset.id));
   });
 }
 
-// ---------------- Modal admin edición ----------------
+// ---------------- Modal edición ----------------
 async function openEditModal(urna_id) {
   const modal = document.getElementById("modalEdit");
   const body = document.getElementById("editBody");
@@ -212,6 +228,7 @@ async function openEditModal(urna_id) {
     renderEditForm(urna);
   } catch (err) {
     body.innerHTML = `<div class="validation warn">${err.message}</div>`;
+    handleApiError(err);
   }
 }
 
@@ -222,8 +239,6 @@ function renderEditForm(urna) {
     `${urna.dia_label || urna.dia} · ID ${urna.urna_id} · fiscal: ${urna.fiscal_nombre || '—'}`;
 
   const body = document.getElementById("editBody");
-
-  // Selector de estado
   const stateHTML = `
     <div class="field" style="margin-bottom:1.2rem;max-width:280px;">
       <label>Estado de la urna</label>
@@ -232,17 +247,13 @@ function renderEditForm(urna) {
         <option value="cerrada" ${urna.estado==='cerrada'?'selected':''}>Cerrada (escrutinio listo)</option>
       </select>
     </div>`;
-
   const catHTML = CATEGORIAS.map(cat => renderEditCategoriaBlock(cat, urna)).join("");
   const obsHTML = `
     <div class="field mt-2">
       <label>Observaciones</label>
       <textarea id="editObs" rows="3" placeholder="Notas sobre la urna, impugnaciones, etc.">${urna.observaciones || ''}</textarea>
     </div>`;
-  body.innerHTML = stateHTML + catHTML + obsHTML + `<div id="editValidationHost"></div>`;
-
-  body.querySelectorAll("input.num").forEach(inp => inp.addEventListener("input", validateEditTotals));
-  validateEditTotals();
+  body.innerHTML = stateHTML + catHTML + obsHTML;
 }
 
 function renderEditCategoriaBlock(cat, urna) {
@@ -277,30 +288,6 @@ function renderEditCategoriaBlock(cat, urna) {
     </div>`;
 }
 
-function validateEditTotals() {
-  const host = document.getElementById("editValidationHost");
-  if (!host) return;
-  const msgs = [];
-  CATEGORIAS.forEach(cat => {
-    let suma = 0;
-    LISTAS.forEach(l => suma += toInt(document.querySelector(`#editBody input[name="${cat.id}_${l.id}"]`)?.value));
-    const b = toInt(document.querySelector(`#editBody input[name="${cat.id}_blancos"]`)?.value);
-    const n = toInt(document.querySelector(`#editBody input[name="${cat.id}_nulos"]`)?.value);
-    const i = toInt(document.querySelector(`#editBody input[name="${cat.id}_impugnados"]`)?.value);
-    const r = toInt(document.querySelector(`#editBody input[name="${cat.id}_recurridos"]`)?.value);
-    const s = toInt(document.querySelector(`#editBody input[name="${cat.id}_total_sobres"]`)?.value);
-    const total = suma + b + n + i + r;
-    if (s > 0 || total > 0) {
-      if (s !== total) {
-        msgs.push({ type: "warn", text: `${cat.label}: cuadra ${total} vs sobres ${s} (dif ${s - total})` });
-      } else if (total > 0) {
-        msgs.push({ type: "ok", text: `${cat.label}: cuadra ✓ (${total} votos)` });
-      }
-    }
-  });
-  host.innerHTML = msgs.map(m => `<div class="validation ${m.type}">${m.text}</div>`).join("");
-}
-
 function closeEditModal() {
   document.getElementById("modalEdit").classList.remove("open");
   currentEdit = null;
@@ -323,12 +310,12 @@ document.getElementById("btnEditGuardar").addEventListener("click", async (e) =>
   const btn = e.currentTarget;
   btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Guardando';
   try {
-    await API.guardarRecuento(currentEdit.urna_id, datos, adminIdentity);
+    await API.guardarRecuento(currentEdit.urna_id, datos);
     toast("Guardado (admin)", "ok");
     closeEditModal();
     loadAll();
   } catch (err) {
-    toast(err.message, "err");
+    handleApiError(err);
   } finally {
     btn.disabled = false; btn.innerHTML = "Guardar cambios";
   }
@@ -343,7 +330,7 @@ document.getElementById("btnAdminEliminar").addEventListener("click", async () =
     closeEditModal();
     loadAll();
   } catch (err) {
-    toast(err.message, "err");
+    handleApiError(err);
   }
 });
 
@@ -367,5 +354,5 @@ function stopAutoRefresh() {
   btn.textContent = "▶ Auto";
 }
 
-// ---------------- Init ----------------
+// Init
 renderAdminGate();
