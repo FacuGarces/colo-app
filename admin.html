@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>COLO · Admin</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23f4c430'/%3E%3Ctext x='32' y='46' text-anchor='middle' font-family='Arial Black' font-size='36' fill='%230a1929'%3EC%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-mark">C</div>
+        <div class="brand-text">
+          <div class="brand-name">COLO · ADMIN</div>
+          <div class="brand-tag">Panel de control · Fiscalización FMED</div>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html">Fiscal</a>
+        <a href="admin.html" class="active">Admin</a>
+        <span id="adminBadge" class="fiscal-badge hidden">
+          <span class="dot"></span>
+          <span id="adminBadgeName"></span>
+          <button class="btn-link" id="btnLogoutAdmin" title="Cerrar">✕</button>
+        </span>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- Gate admin: pide mail autorizado ---------------------------- -->
+    <section id="adminGate" class="card mb-2">
+      <div class="card-header">
+        <h2 class="card-title">Acceso <span class="accent">admin</span></h2>
+        <span class="card-meta">Restringido</span>
+      </div>
+      <p class="text-dim" style="margin-top:-0.5rem;margin-bottom:1.25rem;font-size:0.9rem;">
+        Panel solo para la mesa de admin de Somos Libres. El mail tiene que estar en la whitelist (<code>ADMIN_EMAILS</code> en <code>js/config.js</code>).
+      </p>
+      <form id="adminForm" class="identity-form">
+        <div class="field">
+          <label for="aNombre">Tu nombre</label>
+          <input type="text" id="aNombre" required placeholder="Nombre" />
+        </div>
+        <div class="field">
+          <label for="aEmail">Email admin</label>
+          <input type="email" id="aEmail" required placeholder="admin@..." />
+        </div>
+        <button type="submit" class="btn btn-primary">Entrar</button>
+      </form>
+    </section>
+
+    <!-- Dashboard --------------------------------------------------- -->
+    <section id="adminDashboard" class="hidden">
+      <h1 class="page-title">Resultados <em>en vivo</em></h1>
+      <p class="page-subtitle">
+        Totales agregados de todas las urnas cargadas. Filtros abajo para desglosar por carrera/día/estado.
+      </p>
+
+      <!-- Filtros -->
+      <div class="filters">
+        <select id="filterCarrera"><option value="">Todas las carreras</option></select>
+        <select id="filterDia"><option value="">Todos los días</option></select>
+        <select id="filterEstado">
+          <option value="">Abiertas + cerradas</option>
+          <option value="abierta">Solo abiertas</option>
+          <option value="cerrada">Solo cerradas</option>
+        </select>
+        <select id="filterCategoria">
+          <option value="cd">Consejo Directivo</option>
+          <option value="ce">Centro de Estudiantes</option>
+        </select>
+        <button class="btn" id="btnRefreshAdmin">↻ Refrescar</button>
+        <button class="btn btn-sm" id="btnAutoRefresh" title="Auto-refresh cada 20s">▶ Auto</button>
+        <div class="spacer"></div>
+        <span class="card-meta" id="lastUpdated">—</span>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="stat-label">Urnas cargadas</div>
+          <div class="stat-value" id="statUrnas">0</div>
+          <div class="stat-sub" id="statUrnasSub">0 abiertas · 0 cerradas</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Total votantes</div>
+          <div class="stat-value" id="statVotantes">0</div>
+          <div class="stat-sub" id="statVotantesSub">en la categoría seleccionada</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Sobres totales</div>
+          <div class="stat-value" id="statSobres">0</div>
+          <div class="stat-sub">sumatoria de todas las urnas</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Blancos + Nulos + Imp + Rec</div>
+          <div class="stat-value" id="statOtros">0</div>
+          <div class="stat-sub" id="statOtrosSub">—</div>
+        </div>
+      </div>
+
+      <!-- Tabla resultados -->
+      <div class="card mb-2">
+        <div class="card-header">
+          <h2 class="card-title">Resultados <span class="accent">por lista</span></h2>
+          <span class="card-meta" id="resultsCategoryLabel">Consejo Directivo</span>
+        </div>
+        <div class="row wrap" style="margin-bottom:0.5rem;gap:0.6rem;">
+          <span class="card-meta">Ordenado por votos (desc).</span>
+        </div>
+        <table class="results-table" id="resultsTable">
+          <thead>
+            <tr>
+              <th style="width:55%">Lista</th>
+              <th class="text-right">Votos</th>
+              <th class="text-right">%</th>
+              <th>Participación</th>
+            </tr>
+          </thead>
+          <tbody><!-- inyectado --></tbody>
+        </table>
+      </div>
+
+      <!-- Listado de urnas (editables) -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Todas las <span class="accent">urnas</span></h2>
+          <span class="card-meta" id="urnasCount">—</span>
+        </div>
+        <div id="adminUrnasList" class="urnas-list"></div>
+        <div id="adminUrnasEmpty" class="empty-state hidden">
+          <div class="empty-state-title">Sin urnas todavía</div>
+          <div>Esperando que los fiscales abran su primera urna.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal de edición admin ------------------------------------- -->
+  <div id="modalEdit" class="modal-bg" role="dialog" aria-modal="true">
+    <div class="modal admin-urna-edit">
+      <div class="modal-header">
+        <div>
+          <div class="card-title" id="editTitle" style="font-size:1.3rem;">Editar urna</div>
+          <div class="card-meta" id="editSubtitle">—</div>
+        </div>
+        <button class="close-btn" id="editClose">✕</button>
+      </div>
+      <div class="modal-body" id="editBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="btnAdminEliminar">🗑 Eliminar urna</button>
+        <div class="row">
+          <button class="btn" id="btnEditCancelar">Cancelar</button>
+          <button class="btn btn-primary" id="btnEditGuardar">Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <strong>COLO · ADMIN</strong> · "la verdad siempre triunfa porque si no triunfa no es la verdad" — <em>alguien</em>
+  </footer>
+  <div class="colo-mark">// COLO MORTASH APPROVED //</div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

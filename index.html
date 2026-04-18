@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>COLO · Fiscalización FMED</title>
+  <meta name="description" content="Coordinación de Operaciones Liberales Online — Fiscalización de elecciones FMED UBA" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23f4c430'/%3E%3Ctext x='32' y='46' text-anchor='middle' font-family='Arial Black' font-size='36' fill='%230a1929'%3EC%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-mark">C</div>
+        <div class="brand-text">
+          <div class="brand-name">COLO</div>
+          <div class="brand-tag">Coord. de Operaciones Liberales Online</div>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html" class="active">Fiscal</a>
+        <a href="admin.html">Admin</a>
+        <span id="fiscalBadge" class="fiscal-badge hidden">
+          <span class="dot"></span>
+          <span id="fiscalBadgeName"></span>
+          <button class="btn-link" id="btnLogout" title="Cerrar identidad">✕</button>
+        </span>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- Identidad del fiscal ---------------------------------------- -->
+    <section id="identitySection" class="card mb-2">
+      <div class="card-header">
+        <h2 class="card-title">Identificate <span class="accent">·</span> fiscal</h2>
+        <span class="card-meta">Paso 1 / 2</span>
+      </div>
+      <p class="text-dim" style="margin-top:-0.5rem;margin-bottom:1.25rem;font-size:0.9rem;">
+        Por ahora sin login de Google (viene próximamente). Cargá tu nombre y mail — queda asociado a cada urna que abras.
+      </p>
+      <form id="identityForm" class="identity-form">
+        <div class="field">
+          <label for="fNombre">Nombre y apellido</label>
+          <input type="text" id="fNombre" name="nombre" required placeholder="Juan Pérez" />
+        </div>
+        <div class="field">
+          <label for="fEmail">Email (Gmail)</label>
+          <input type="email" id="fEmail" name="email" required placeholder="juan@gmail.com" />
+        </div>
+        <button type="submit" class="btn btn-primary">Continuar →</button>
+      </form>
+    </section>
+
+    <!-- Sección principal del fiscal -------------------------------- -->
+    <section id="fiscalSection" class="hidden">
+      <h1 class="page-title">Fiscalización <em>FMED</em></h1>
+      <p class="page-subtitle">
+        Abrí una urna al llegar a tu mesa. Cargá el recuento cuando termine el escrutinio.
+        Todo se sincroniza con la Google Sheet en tiempo real.
+      </p>
+
+      <!-- Abrir urna -->
+      <div class="card mb-2">
+        <div class="card-header">
+          <h2 class="card-title">Abrir <span class="accent">urna</span></h2>
+          <span class="card-meta" id="nowLabel"></span>
+        </div>
+        <div class="urna-opener">
+          <div class="field">
+            <label for="urnaCarrera">Carrera</label>
+            <select id="urnaCarrera"></select>
+          </div>
+          <div class="field">
+            <label for="urnaDia">Día</label>
+            <select id="urnaDia"></select>
+          </div>
+          <div class="field">
+            <label for="urnaNumero">N° urna</label>
+            <input type="number" id="urnaNumero" min="1" placeholder="1" />
+          </div>
+          <button type="button" id="btnAbrirUrna" class="btn btn-primary">
+            <span>Abrir urna</span>
+          </button>
+        </div>
+        <p class="text-dim text-mono" style="font-size:0.72rem;margin-top:0.7rem;">
+          ID generado: <span id="previewId" style="color:var(--fmed-gold)">—</span>
+        </p>
+      </div>
+
+      <!-- Mis urnas -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Mis <span class="accent">urnas</span></h2>
+          <div class="row">
+            <button type="button" id="btnRefresh" class="btn btn-sm">↻ Refrescar</button>
+          </div>
+        </div>
+        <div id="urnasList" class="urnas-list"></div>
+        <div id="urnasEmpty" class="empty-state hidden">
+          <div class="empty-state-title">Todavía no abriste ninguna urna</div>
+          <div>Arriba hacés "Abrir urna" y empezamos.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal de carga de recuento ---------------------------------- -->
+  <div id="modalRecuento" class="modal-bg" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <div class="card-title" id="modalTitle" style="font-size:1.3rem;">Cargar recuento</div>
+          <div class="card-meta" id="modalSubtitle">—</div>
+        </div>
+        <button class="close-btn" id="modalClose" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"><!-- inyectado --></div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="btnEliminarUrna" title="Eliminar esta urna">🗑 Eliminar urna</button>
+        <div class="row">
+          <button class="btn" id="btnCancelar">Cancelar</button>
+          <button class="btn btn-primary" id="btnGuardar">Guardar recuento</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <strong>COLO</strong> · Fiscalización al pelo · <em>made by &amp; for la agrupación</em> Somos Libres
+  </footer>
+  <div class="colo-mark">// COLO MORTASH APPROVED //</div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/fiscal.js"></script>
+</body>
+</html>
