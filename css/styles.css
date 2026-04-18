@@ -1,7 +1,7 @@
 /* ========================================================================
-   COLO â€” stylesheet
+   COLO — stylesheet
    Paleta: azul profundo FMED + dorado + alto contraste
-   TipografÃ­as: Anton (display), Archivo (UI), JetBrains Mono (data)
+   Tipografías: Anton (display), Archivo (UI), JetBrains Mono (data)
    ======================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap');
@@ -134,6 +134,11 @@ a:hover { text-decoration: underline; }
   font-family: var(--mono); font-size: 0.75rem;
 }
 .fiscal-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.fiscal-badge .fiscal-pic {
+  width: 20px; height: 20px; border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
 
 /* Layout principal ------------------------------------------------------- */
 .main {
@@ -612,7 +617,7 @@ a:hover { text-decoration: underline; }
 }
 .close-btn:hover { color: var(--err); border-color: var(--err); }
 
-/* Detalle urna admin â€” editable */
+/* Detalle urna admin — editable */
 .admin-urna-edit .lista-row,
 .admin-urna-edit .field input {
   font-size: 0.88rem;
@@ -628,3 +633,139 @@ a:hover { text-decoration: underline; }
 .text-right { text-align: right; }
 .mt-1 { margin-top: 1rem; } .mt-2 { margin-top: 2rem; }
 .mb-1 { margin-bottom: 1rem; } .mb-2 { margin-bottom: 2rem; }
+
+/* =====================================================================
+   MOBILE RESPONSIVE
+   ===================================================================== */
+
+/* Tablet y mobile mediano */
+@media (max-width: 768px) {
+  :root {
+    --pad: 0.85rem;
+  }
+  body { font-size: 14px; }
+
+  .main { padding: 1.25rem var(--pad); }
+
+  /* Header más compacto */
+  .header-inner {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.6rem var(--pad);
+  }
+  .brand-mark { width: 36px; height: 36px; font-size: 1.4rem; }
+  .brand-name { font-size: 1.2rem; letter-spacing: 1px; }
+  .brand-tag { display: none; } /* el tagline solo en desktop */
+
+  .header-nav {
+    gap: 0.25rem;
+    flex-wrap: wrap;
+  }
+  .header-nav a, .header-nav .btn-link {
+    padding: 0.4rem 0.65rem;
+    font-size: 0.7rem;
+  }
+  .fiscal-badge {
+    padding: 0.3rem 0.55rem;
+    font-size: 0.68rem;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .page-title { font-size: 2.2rem; }
+  .page-subtitle { font-size: 0.9rem; }
+
+  .card { padding: 1rem; }
+  .card-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .card-title { font-size: 1.1rem; }
+
+  /* Abrir urna: apilar */
+  .urna-opener {
+    grid-template-columns: 1fr 1fr;
+    padding: 0.75rem;
+  }
+  .urna-opener > .btn { grid-column: 1 / -1; }
+
+  /* Urnas list: 1 columna */
+  .urnas-list {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  /* Modal: full-screen feel en mobile */
+  .modal-bg { padding: 0; align-items: stretch; }
+  .modal {
+    border-radius: 0;
+    max-height: 100vh;
+    height: 100vh;
+    width: 100%;
+  }
+  .modal-body { padding: 0.9rem; }
+  .modal-header { padding: 0.85rem; }
+  .modal-footer {
+    padding: 0.75rem 0.85rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .modal-footer .row { flex: 1; justify-content: flex-end; }
+
+  /* Listas grid: 1 columna en mobile */
+  .listas-grid { grid-template-columns: 1fr; gap: 0.5rem; }
+  .lista-row {
+    grid-template-columns: 36px 1fr 90px;
+    gap: 0.5rem;
+    padding: 0.5rem 0.6rem;
+  }
+  .lista-row .logo { width: 34px; height: 34px; }
+  .lista-row .name .txt { font-size: 0.85rem; }
+  .lista-row .field input { padding: 0.4rem 0.5rem; font-size: 0.85rem; }
+
+  .extras-grid { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+
+  /* Stats: 2 columnas en mobile */
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  .stat { padding: 0.75rem 0.85rem; }
+  .stat-value { font-size: 1.8rem; }
+
+  /* Filtros admin: wrap */
+  .filters { gap: 0.4rem; }
+  .filters select, .filters input { flex: 1; min-width: 0; font-size: 0.75rem; }
+
+  /* Tabla resultados: compacta + scroll horizontal si hace falta */
+  .card > .results-table,
+  .card .results-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .results-table thead th { padding: 0.5rem 0.55rem; font-size: 0.65rem; }
+  .results-table tbody td { padding: 0.55rem; font-size: 0.82rem; }
+  .results-table .lista-cell img { width: 28px; height: 28px; }
+  .results-table .pct-bar { min-width: 70px; }
+
+  /* Footer + marca del colo */
+  .footer { padding: 1.25rem var(--pad); font-size: 0.65rem; }
+  .colo-mark { font-size: 0.6rem; bottom: 0.6rem; left: 0.6rem; }
+}
+
+/* Mobile chico */
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .lista-row {
+    grid-template-columns: 32px 1fr 75px;
+  }
+  .lista-row .name .num { font-size: 0.62rem; }
+  .lista-row .name .txt { font-size: 0.78rem; }
+  .extras-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Admin: en mobile chico el nav se corta con el badge */
+  .header-nav { width: 100%; justify-content: flex-start; }
+  .fiscal-badge { order: 3; }
+}
+
