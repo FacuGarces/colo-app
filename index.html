@@ -7,6 +7,7 @@
   <meta name="description" content="Coordinación de Operaciones Liberales Online — Fiscalización de elecciones FMED UBA" />
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23f4c430'/%3E%3Ctext x='32' y='46' text-anchor='middle' font-family='Arial Black' font-size='36' fill='%230a1929'%3EC%3C/text%3E%3C/svg%3E" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <header class="header">
@@ -22,38 +23,31 @@
         <a href="index.html" class="active">Fiscal</a>
         <a href="admin.html">Admin</a>
         <span id="fiscalBadge" class="fiscal-badge hidden">
-          <span class="dot"></span>
+          <img id="fiscalBadgePic" class="fiscal-pic" alt="" />
           <span id="fiscalBadgeName"></span>
-          <button class="btn-link" id="btnLogout" title="Cerrar identidad">✕</button>
+          <button class="btn-link" id="btnLogout" title="Cerrar sesión">✕</button>
         </span>
       </nav>
     </div>
   </header>
 
   <main class="main">
-    <!-- Identidad del fiscal ---------------------------------------- -->
-    <section id="identitySection" class="card mb-2">
+    <!-- Sign-in ---------------------------------------------------- -->
+    <section id="signInSection" class="card mb-2">
       <div class="card-header">
-        <h2 class="card-title">Identificate <span class="accent">·</span> fiscal</h2>
-        <span class="card-meta">Paso 1 / 2</span>
+        <h2 class="card-title">Iniciá <span class="accent">sesión</span></h2>
+        <span class="card-meta">Con tu cuenta Google</span>
       </div>
-      <p class="text-dim" style="margin-top:-0.5rem;margin-bottom:1.25rem;font-size:0.9rem;">
-        Por ahora sin login de Google (viene próximamente). Cargá tu nombre y mail — queda asociado a cada urna que abras.
+      <p class="text-dim" style="margin-top:-0.5rem;margin-bottom:1.25rem;font-size:0.92rem;">
+        Para fiscalizar necesitás estar autorizado. Entrá con la cuenta de Google (Gmail) con la que te registraron como fiscal.
       </p>
-      <form id="identityForm" class="identity-form">
-        <div class="field">
-          <label for="fNombre">Nombre y apellido</label>
-          <input type="text" id="fNombre" name="nombre" required placeholder="Juan Pérez" />
-        </div>
-        <div class="field">
-          <label for="fEmail">Email (Gmail)</label>
-          <input type="email" id="fEmail" name="email" required placeholder="juan@gmail.com" />
-        </div>
-        <button type="submit" class="btn btn-primary">Continuar →</button>
-      </form>
+      <div id="googleSignInBtn" style="min-height:48px;"></div>
+      <p class="text-dim text-mono" style="font-size:0.68rem;margin-top:1rem;">
+        Si no sos fiscal autorizado no vas a poder cargar datos. Avisá a la mesa de coordinación.
+      </p>
     </section>
 
-    <!-- Sección principal del fiscal -------------------------------- -->
+    <!-- Sección principal del fiscal ------------------------------- -->
     <section id="fiscalSection" class="hidden">
       <h1 class="page-title">Fiscalización <em>FMED</em></h1>
       <p class="page-subtitle">
@@ -106,7 +100,7 @@
     </section>
   </main>
 
-  <!-- Modal de carga de recuento ---------------------------------- -->
+  <!-- Modal de carga de recuento -------------------------------- -->
   <div id="modalRecuento" class="modal-bg" role="dialog" aria-modal="true">
     <div class="modal">
       <div class="modal-header">
@@ -116,7 +110,7 @@
         </div>
         <button class="close-btn" id="modalClose" aria-label="Cerrar">✕</button>
       </div>
-      <div class="modal-body" id="modalBody"><!-- inyectado --></div>
+      <div class="modal-body" id="modalBody"></div>
       <div class="modal-footer">
         <button class="btn btn-danger btn-sm" id="btnEliminarUrna" title="Eliminar esta urna">🗑 Eliminar urna</button>
         <div class="row">
