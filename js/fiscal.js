@@ -192,10 +192,7 @@ function renderCategoriaBlock(cat, urna) {
           <div class="num">LISTA ${l.numero}</div>
           <div class="txt">${l.nombre}</div>
         </div>
-        <div class="field">
-          <input type="number" min="0" class="num" data-cat="${cat.id}" data-field="${l.id}"
-                 name="${fieldName}" value="${value}" placeholder="0" />
-        </div>
+        ${numInput({ name: fieldName, value })}
       </div>`;
   }).join("");
   const extrasHTML = CAMPOS_EXTRA.map(f => {
@@ -203,9 +200,8 @@ function renderCategoriaBlock(cat, urna) {
     const value = urna[fieldName] || "";
     return `
       <div class="field">
-        <label for="${fieldName}">${f.label}</label>
-        <input type="number" min="0" class="num" data-cat="${cat.id}" data-field="${f.id}"
-               id="${fieldName}" name="${fieldName}" value="${value}" placeholder="0" />
+        <label>${f.label}</label>
+        ${numInput({ name: fieldName, value, id: fieldName })}
       </div>`;
   }).join("");
   return `
