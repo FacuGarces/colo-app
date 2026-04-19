@@ -356,7 +356,7 @@ a:hover { text-decoration: underline; }
 }
 .lista-row {
   display: grid;
-  grid-template-columns: 44px 1fr 110px;
+  grid-template-columns: 44px 1fr 150px;
   gap: 0.7rem;
   align-items: center;
   padding: 0.55rem 0.7rem;
@@ -635,6 +635,74 @@ a:hover { text-decoration: underline; }
 .mb-1 { margin-bottom: 1rem; } .mb-2 { margin-bottom: 2rem; }
 
 /* =====================================================================
+   INPUT NUMÉRICO CON BOTONES +/- (stepper)
+   ===================================================================== */
+
+.num-stepper {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: stretch;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--fmed-navy);
+  min-width: 0;
+  height: 44px;
+  transition: border-color 0.15s;
+}
+.num-stepper:focus-within {
+  border-color: var(--fmed-gold);
+}
+.num-stepper input[type="number"] {
+  border: none;
+  background: transparent;
+  text-align: center;
+  padding: 0 0.25rem;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  width: 100%;
+  min-width: 0;
+  -moz-appearance: textfield;
+}
+.num-stepper input[type="number"]::-webkit-outer-spin-button,
+.num-stepper input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.num-stepper input[type="number"]:focus {
+  outline: none;
+  background: rgba(244, 196, 48, 0.06);
+}
+.stepper-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s, color 0.1s, transform 0.05s;
+  display: grid;
+  place-items: center;
+}
+.stepper-btn:hover {
+  background: var(--fmed-gold);
+  color: var(--fmed-navy);
+}
+.stepper-btn:active {
+  transform: scale(0.92);
+  background: var(--fmed-gold-soft);
+}
+.stepper-minus { border-right: 1px solid var(--border-soft); }
+.stepper-plus  { border-left:  1px solid var(--border-soft); }
+
+/* =====================================================================
    MOBILE RESPONSIVE
    ===================================================================== */
 
@@ -718,13 +786,17 @@ a:hover { text-decoration: underline; }
   /* Listas grid: 1 columna en mobile */
   .listas-grid { grid-template-columns: 1fr; gap: 0.5rem; }
   .lista-row {
-    grid-template-columns: 36px 1fr 90px;
+    grid-template-columns: 36px 1fr 130px;
     gap: 0.5rem;
     padding: 0.5rem 0.6rem;
   }
   .lista-row .logo { width: 34px; height: 34px; }
   .lista-row .name .txt { font-size: 0.85rem; }
-  .lista-row .field input { padding: 0.4rem 0.5rem; font-size: 0.85rem; }
+
+  /* Stepper un poco más compacto en mobile */
+  .num-stepper { grid-template-columns: 36px 1fr 36px; height: 40px; }
+  .num-stepper input[type="number"] { font-size: 0.95rem; }
+  .stepper-btn { font-size: 1.2rem; }
 
   .extras-grid { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 
@@ -758,10 +830,12 @@ a:hover { text-decoration: underline; }
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .lista-row {
-    grid-template-columns: 32px 1fr 75px;
+    grid-template-columns: 32px 1fr 120px;
   }
   .lista-row .name .num { font-size: 0.62rem; }
   .lista-row .name .txt { font-size: 0.78rem; }
+  .num-stepper { grid-template-columns: 32px 1fr 32px; height: 38px; }
+  .stepper-btn { font-size: 1.1rem; }
   .extras-grid { grid-template-columns: 1fr 1fr; }
 
   /* Admin: en mobile chico el nav se corta con el badge */
