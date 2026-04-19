@@ -137,18 +137,40 @@ function renderUrnasList(urnas) {
     return;
   }
   emptyEl.classList.add("hidden");
-  listEl.innerHTML = urnas.map(u => `
-    <div class="urna-card" data-id="${u.urna_id}">
-      <div class="urna-card-title">${u.carrera} · U${String(u.numero).padStart(2,"0")}</div>
-      <div class="urna-card-meta">
-        <span class="chip">${u.dia_label || u.dia}</span>
-        <span class="chip state-${u.estado || 'abierta'}">${u.estado || 'abierta'}</span>
-      </div>
-      <div class="text-mono text-dim" style="font-size:0.7rem;">${u.urna_id}</div>
-    </div>`).join("");
+  listEl.innerHTML = urnas.map(u => {
+    const estado = u.estado || 'abierta';
+    // Si está abierta y tiene al menos un dato cargado, mostrar "pendiente cerrar"
+    const tieneDatos = urnaTieneDatos(u);
+    const pendienteChip = estado === "abierta" && tieneDatos
+      ? `<span class="chip state-pendiente" title="Con datos cargados pero todavía abierta">⚠ pendiente cerrar</span>`
+      : "";
+    return `
+      <div class="urna-card" data-id="${u.urna_id}">
+        <div class="urna-card-title">${u.carrera} · U${String(u.numero).padStart(2,"0")}</div>
+        <div class="urna-card-meta">
+          <span class="chip">${u.dia_label || u.dia}</span>
+          <span class="chip state-${estado}">${estado}</span>
+          ${pendienteChip}
+        </div>
+        <div class="text-mono text-dim" style="font-size:0.7rem;">${u.urna_id}</div>
+      </div>`;
+  }).join("");
   listEl.querySelectorAll(".urna-card").forEach(card => {
     card.addEventListener("click", () => openRecuentoModal(card.dataset.id));
   });
+}
+
+// Chequea si la urna tiene al menos un valor numérico cargado
+function urnaTieneDatos(u) {
+  for (const cat of CATEGORIAS) {
+    for (const l of LISTAS) {
+      if (toInt(u[`${cat.id}_${l.id}`]) > 0) return true;
+    }
+    for (const f of CAMPOS_EXTRA) {
+      if (toInt(u[`${cat.id}_${f.id}`]) > 0) return true;
+    }
+  }
+  return false;
 }
 
 document.getElementById("btnRefresh").addEventListener("click", loadUrnas);
@@ -177,7 +199,42 @@ function renderRecuentoForm(urna) {
     `${urna.dia_label || urna.dia} · ID ${urna.urna_id}`;
 
   const body = document.getElementById("modalBody");
-  body.innerHTML = CATEGORIAS.map(cat => renderCategoriaBlock(cat, urna)).join("");
+  const cerrada = urna.estado === "cerrada";
+
+  // Banner según estado
+  const banner = cerrada
+    ? `<div class="validation warn" style="margin-bottom:1rem;">
+         🔒 <strong>Esta urna está cerrada.</strong> Los datos son finales. Si necesitás modificarlos, pedile a un admin que la reabra.
+       </div>`
+    : `<div class="validation ok" style="margin-bottom:1rem;background:rgba(244,196,48,0.08);border-color:rgba(244,196,48,0.3);color:var(--fmed-gold-soft);">
+         💡 Recordá apretar <strong>"Cerrar urna"</strong> cuando termines el escrutinio. Si todavía estás cargando, usá <strong>"Guardar"</strong> para ir salvando parcialmente.
+       </div>`;
+
+  body.innerHTML = banner + CATEGORIAS.map(cat => renderCategoriaBlock(cat, urna)).join("");
+
+  // Si está cerrada, todos los inputs readonly + botones adecuados
+  if (cerrada) {
+    body.querySelectorAll("input, button.stepper-btn").forEach(el => {
+      if (el.tagName === "INPUT") el.setAttribute("readonly", "readonly");
+      if (el.tagName === "BUTTON") el.setAttribute("disabled", "disabled");
+    });
+  }
+  updateFooterForState(cerrada);
+}
+
+function updateFooterForState(cerrada) {
+  const btnGuardar = document.getElementById("btnGuardar");
+  const btnCerrar = document.getElementById("btnCerrarUrna");
+  const btnEliminar = document.getElementById("btnEliminarUrna");
+  if (cerrada) {
+    btnGuardar.classList.add("hidden");
+    btnCerrar.classList.add("hidden");
+    btnEliminar.classList.add("hidden"); // fiscal no puede eliminar urna cerrada
+  } else {
+    btnGuardar.classList.remove("hidden");
+    btnCerrar.classList.remove("hidden");
+    btnEliminar.classList.remove("hidden");
+  }
 }
 
 function renderCategoriaBlock(cat, urna) {
@@ -233,13 +290,44 @@ document.getElementById("btnGuardar").addEventListener("click", async (e) => {
   btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Guardando...';
   try {
     await API.guardarRecuento(currentUrna.urna_id, datos);
-    toast("Recuento guardado", "ok");
+    toast("Guardado. Acordate de cerrar la urna cuando termines.", "ok");
     closeModal();
     loadUrnas();
   } catch (err) {
     handleApiError(err);
   } finally {
-    btn.disabled = false; btn.innerHTML = "Guardar recuento";
+    btn.disabled = false; btn.innerHTML = "💾 Guardar";
+  }
+});
+
+// Cerrar urna: guarda + cambia estado a "cerrada" con warning fuerte
+document.getElementById("btnCerrarUrna").addEventListener("click", async (e) => {
+  if (!currentUrna) return;
+  const confirmado = confirm(
+    "⚠️ ATENCIÓN — ¿Cerrar esta urna?\n\n" +
+    "Una vez cerrada:\n" +
+    "• Los datos quedan como finales.\n" +
+    "• No vas a poder seguir editándola.\n" +
+    "• Si necesitás modificarla después, vas a tener que pedirle a un admin de Somos Libres que la reabra.\n\n" +
+    "¿Confirmás que terminaste el escrutinio de esta urna?"
+  );
+  if (!confirmado) return;
+
+  const datos = { estado: "cerrada" };
+  document.querySelectorAll("#modalBody input.num").forEach(inp => {
+    datos[inp.name] = toInt(inp.value);
+  });
+  const btn = e.currentTarget;
+  btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Cerrando...';
+  try {
+    await API.guardarRecuento(currentUrna.urna_id, datos);
+    toast("Urna cerrada ✓", "ok");
+    closeModal();
+    loadUrnas();
+  } catch (err) {
+    handleApiError(err);
+  } finally {
+    btn.disabled = false; btn.innerHTML = "🔒 Cerrar urna";
   }
 });
 
