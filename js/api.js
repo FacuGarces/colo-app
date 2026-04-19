@@ -202,3 +202,36 @@ function slugify(s) {
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
+
+// ---------------- Input numérico con botones +/- ----------------
+// Devuelve el HTML de un "stepper": [−] [input] [+]
+function numInput(opts) {
+  const name = opts.name;
+  const value = opts.value != null && opts.value !== "" ? opts.value : "";
+  const id = opts.id ? ` id="${opts.id}"` : "";
+  return (
+    '<div class="num-stepper">' +
+      '<button type="button" class="stepper-btn stepper-minus" data-step="-1" aria-label="Restar 1" tabindex="-1">−</button>' +
+      '<input type="number" min="0" inputmode="numeric" pattern="[0-9]*" class="num"' +
+        ' name="' + name + '"' + id +
+        ' value="' + value + '" placeholder="0" />' +
+      '<button type="button" class="stepper-btn stepper-plus" data-step="1" aria-label="Sumar 1" tabindex="-1">+</button>' +
+    '</div>'
+  );
+}
+
+// Event delegation global: cualquier click en un .stepper-btn incrementa/decrementa su input.
+// Funciona incluso para steppers creados dinámicamente (modal, re-render, etc.)
+document.addEventListener("click", function (e) {
+  const btn = e.target.closest(".stepper-btn");
+  if (!btn) return;
+  e.preventDefault();
+  const step = parseInt(btn.dataset.step, 10) || 0;
+  const input = btn.parentElement && btn.parentElement.querySelector('input[type="number"]');
+  if (!input) return;
+  const current = parseInt(input.value, 10) || 0;
+  const next = Math.max(0, current + step);
+  input.value = next;
+  // Disparar evento input por si alguien escucha (ej. validación futura)
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+});
