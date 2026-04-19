@@ -327,6 +327,16 @@ a:hover { text-decoration: underline; }
 }
 .chip.state-cerrada { background: rgba(126,231,135,0.08); border-color: rgba(126,231,135,0.3); color: var(--ok); }
 .chip.state-abierta { background: rgba(255,166,87,0.1); border-color: rgba(255,166,87,0.3); color: var(--warn); }
+.chip.state-pendiente {
+  background: rgba(255,107,107,0.12);
+  border-color: rgba(255,107,107,0.4);
+  color: var(--err);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
 
 /* Formulario de carga ---------------------------------------------------- */
 .categoria-block {
