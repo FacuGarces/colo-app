@@ -266,9 +266,7 @@ function renderEditCategoriaBlock(cat, urna) {
           <div class="num">LISTA ${l.numero}</div>
           <div class="txt">${l.nombre}</div>
         </div>
-        <div class="field">
-          <input type="number" min="0" class="num" name="${fieldName}" value="${urna[fieldName] || ''}" placeholder="0" />
-        </div>
+        ${numInput({ name: fieldName, value: urna[fieldName] })}
       </div>`;
   }).join("");
   const extrasHTML = CAMPOS_EXTRA.map(f => {
@@ -276,7 +274,7 @@ function renderEditCategoriaBlock(cat, urna) {
     return `
       <div class="field">
         <label>${f.label}</label>
-        <input type="number" min="0" class="num" name="${fieldName}" value="${urna[fieldName] || ''}" placeholder="0" />
+        ${numInput({ name: fieldName, value: urna[fieldName] })}
       </div>`;
   }).join("");
   return `
