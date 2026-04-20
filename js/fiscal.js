@@ -70,11 +70,25 @@ function buildUrnaId(carrera, dia, numero) {
   return `${slugify(carrera)}-${dia}-${String(n).padStart(2, "0")}`;
 }
 
+// Cache de las urnas que el fiscal ya tiene abiertas (para detectar duplicados antes de crearlas)
+let urnasCache = [];
+
 function updateIdPreview() {
   const c = document.getElementById("urnaCarrera").value;
   const d = document.getElementById("urnaDia").value;
   const n = document.getElementById("urnaNumero").value;
-  document.getElementById("previewId").textContent = buildUrnaId(c, d, n) || "—";
+  const id = buildUrnaId(c, d, n);
+  const previewEl = document.getElementById("previewId");
+  previewEl.textContent = id || "—";
+
+  // Si el ID ya existe entre mis urnas, mostrar warning visual
+  const existe = id && urnasCache.some(u => u.urna_id === id);
+  if (existe) {
+    previewEl.style.color = "var(--err)";
+    previewEl.textContent = id + " ⚠ ya tenés una abierta con ese ID";
+  } else {
+    previewEl.style.color = "var(--fmed-gold)";
+  }
 }
 
 function updateNowLabel() {
@@ -113,22 +127,42 @@ document.getElementById("btnAbrirUrna").addEventListener("click", async (e) => {
 });
 
 // ---------------- Listar urnas ----------------
-async function loadUrnas() {
+async function loadUrnas(opts = {}) {
   if (!Session.isActive()) return;
   const listEl = document.getElementById("urnasList");
   const emptyEl = document.getElementById("urnasEmpty");
-  listEl.innerHTML = '<div class="text-dim text-mono">Cargando...</div>';
+  // Si es la primera carga, mostrar "Cargando..."; si es un auto-refresh, silencioso
+  if (!opts.silent && urnasCache.length === 0) {
+    listEl.innerHTML = '<div class="text-dim text-mono">Cargando...</div>';
+  }
   emptyEl.classList.add("hidden");
   try {
     const urnas = await API.listarUrnas();
     renderUrnasList(urnas);
+    updateLastRefreshLabel();
   } catch (err) {
-    listEl.innerHTML = `<div class="validation warn">${err.message}</div>`;
-    handleApiError(err);
+    if (!opts.silent) {
+      listEl.innerHTML = `<div class="validation warn">${err.message}</div>`;
+      handleApiError(err);
+    } else {
+      // En auto-refresh, solo loggear, no interrumpir al fiscal
+      console.warn("Auto-refresh falló:", err.message);
+    }
   }
 }
 
+function updateLastRefreshLabel() {
+  const el = document.getElementById("lastRefreshLabel");
+  if (!el) return;
+  const now = new Date();
+  el.textContent = "actualizado " + now.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
 function renderUrnasList(urnas) {
+  // Guardar cache para detección de duplicados en el preview
+  urnasCache = urnas || [];
+  updateIdPreview(); // actualiza el warning visual si corresponde
+
   const listEl = document.getElementById("urnasList");
   const emptyEl = document.getElementById("urnasEmpty");
   if (!urnas || urnas.length === 0) {
@@ -344,8 +378,34 @@ document.getElementById("btnEliminarUrna").addEventListener("click", async () =>
   }
 });
 
+// ---------------- Auto-refresh (polling cada 15s) ----------------
+// Para evitar que 2 fiscales creen la misma urna sin saberlo
+let fiscalAutoRefreshTimer = null;
+
+function startFiscalAutoRefresh() {
+  if (fiscalAutoRefreshTimer) return;
+  fiscalAutoRefreshTimer = setInterval(() => {
+    const modalOpen = document.getElementById("modalRecuento")?.classList.contains("open");
+    if (!Session.isActive() || modalOpen) return;
+    if (document.hidden) return;
+    loadUrnas({ silent: true });
+  }, 30000); // 30 segundos — balance entre frescura y cuota de Apps Script
+}
+function stopFiscalAutoRefresh() {
+  if (fiscalAutoRefreshTimer) { clearInterval(fiscalAutoRefreshTimer); fiscalAutoRefreshTimer = null; }
+}
+
+// Cuando volvés a la pestaña, refrescar inmediatamente
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && Session.isActive()) {
+    const modalOpen = document.getElementById("modalRecuento")?.classList.contains("open");
+    if (!modalOpen) loadUrnas();
+  }
+});
+
 // ---------------- Init ----------------
 fillOpenerSelects();
 updateNowLabel();
 setInterval(updateNowLabel, 30000);
 renderIdentity();
+startFiscalAutoRefresh();
