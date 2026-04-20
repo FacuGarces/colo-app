@@ -12,13 +12,13 @@ const GOOGLE_CLIENT_ID = "44126438744-pt6nsqj7j3gmjtsm7b42n2onr308152o.apps.goog
 
 // Listas participantes
 const LISTAS = [
-  { id: "lista4",  numero: 4,   nombre: "En Clave Roja",        color: "#e31b23", colorOscuro: "#8a0e13", logo: "assets/logos/lista4.svg" },
-  { id: "lista8",  numero: 8,   nombre: "El Frente",            color: "#c1121f", colorOscuro: "#6a0a13", logo: "assets/logos/lista8.svg" },
-  { id: "lista9",  numero: 9,   nombre: "Somos Libres",         color: "#7b2cbf", colorOscuro: "#3c1661", logo: "assets/logos/lista9.svg", destacada: true },
-  { id: "lista10", numero: 10,  nombre: "Nuevo Espacio",        color: "#ff7b00", colorOscuro: "#a04d00", logo: "assets/logos/lista10.svg" },
-  { id: "lista12", numero: 12,  nombre: "El Torrente",          color: "#00b4d8", colorOscuro: "#005f73", logo: "assets/logos/lista12.svg" },
-  { id: "lista13", numero: 13,  nombre: "Nuevo MAS",            color: "#d90429", colorOscuro: "#6d0217", logo: "assets/logos/lista13.svg" },
-  { id: "lista17", numero: 17,  nombre: "JUP",                  color: "#0077b6", colorOscuro: "#003d5c", logo: "assets/logos/lista17.svg" },
+  { id: "lista4",  numero: 4,   nombre: "En Clave Roja",        color: "#e31b23", colorOscuro: "#8a0e13", logo: "assets/logos/lista4.jpeg" },
+  { id: "lista8",  numero: 8,   nombre: "El Frente",            color: "#c1121f", colorOscuro: "#6a0a13", logo: "assets/logos/lista8.jpeg" },
+  { id: "lista9",  numero: 9,   nombre: "Somos Libres",         color: "#7b2cbf", colorOscuro: "#3c1661", logo: "assets/logos/lista9.jpeg", destacada: true },
+  { id: "lista10", numero: 10,  nombre: "Nuevo Espacio",        color: "#ff7b00", colorOscuro: "#a04d00", logo: "assets/logos/lista10.jpeg" },
+  { id: "lista12", numero: 12,  nombre: "El Torrente",          color: "#00b4d8", colorOscuro: "#005f73", logo: "assets/logos/lista12.jpeg" },
+  { id: "lista13", numero: 13,  nombre: "Nuevo MAS",            color: "#d90429", colorOscuro: "#6d0217", logo: "assets/logos/lista13.jpeg" },
+  { id: "lista17", numero: 17,  nombre: "JUP",                  color: "#0077b6", colorOscuro: "#003d5c", logo: "assets/logos/lista17.jpeg" },
   { id: "listax",  numero: "X", nombre: "Lista Peronista (por confirmar)", color: "#8d99ae", colorOscuro: "#4a5062", logo: "assets/logos/listax.svg" },
 ];
 
