@@ -339,10 +339,10 @@ function toggleAutoRefresh() {
     stopAutoRefresh();
     btn.textContent = "▶ Auto";
   } else {
-    autoRefreshTimer = setInterval(loadAll, 20000);
+    autoRefreshTimer = setInterval(loadAll, 30000);
     btn.innerHTML = "⏸ Auto ON";
     btn.classList.add("btn-primary");
-    toast("Auto-refresh activado (cada 20s)", "ok");
+    toast("Auto-refresh activado (cada 30s)", "ok");
   }
 }
 function stopAutoRefresh() {
