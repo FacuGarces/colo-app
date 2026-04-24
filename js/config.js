@@ -53,12 +53,9 @@ const CATEGORIAS = [
 ];
 
 const CAMPOS_EXTRA = [
-  { id: "blancos",        label: "En blanco" },
-  { id: "nulos",          label: "Nulos" },
-  { id: "impugnados",     label: "Impugnados" },
-  { id: "recurridos",     label: "Recurridos" },
-  { id: "total_sobres",   label: "Total sobres" },
-  { id: "total_votantes", label: "Total votantes" },
+  { id: "blancos",      label: "En blanco" },
+  { id: "nulos",        label: "Nulos" },
+  { id: "total_sobres", label: "Total sobres" },
 ];
 
 // ⚠️ La whitelist de admins ahora vive en el backend (apps-script/Code.gs → ADMIN_EMAILS).
