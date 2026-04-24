@@ -131,7 +131,6 @@ async function loadUrnas(opts = {}) {
   if (!Session.isActive()) return;
   const listEl = document.getElementById("urnasList");
   const emptyEl = document.getElementById("urnasEmpty");
-  // Si es la primera carga, mostrar "Cargando..."; si es un auto-refresh, silencioso
   if (!opts.silent && urnasCache.length === 0) {
     listEl.innerHTML = '<div class="text-dim text-mono">Cargando...</div>';
   }
@@ -145,7 +144,6 @@ async function loadUrnas(opts = {}) {
       listEl.innerHTML = `<div class="validation warn">${err.message}</div>`;
       handleApiError(err);
     } else {
-      // En auto-refresh, solo loggear, no interrumpir al fiscal
       console.warn("Auto-refresh falló:", err.message);
     }
   }
@@ -159,9 +157,8 @@ function updateLastRefreshLabel() {
 }
 
 function renderUrnasList(urnas) {
-  // Guardar cache para detección de duplicados en el preview
   urnasCache = urnas || [];
-  updateIdPreview(); // actualiza el warning visual si corresponde
+  updateIdPreview();
 
   const listEl = document.getElementById("urnasList");
   const emptyEl = document.getElementById("urnasEmpty");
@@ -173,7 +170,6 @@ function renderUrnasList(urnas) {
   emptyEl.classList.add("hidden");
   listEl.innerHTML = urnas.map(u => {
     const estado = u.estado || 'abierta';
-    // Si está abierta y tiene al menos un dato cargado, mostrar "pendiente cerrar"
     const tieneDatos = urnaTieneDatos(u);
     const pendienteChip = estado === "abierta" && tieneDatos
       ? `<span class="chip state-pendiente" title="Con datos cargados pero todavía abierta">⚠ pendiente cerrar</span>`
@@ -228,14 +224,13 @@ async function openRecuentoModal(urna_id) {
 
 function renderRecuentoForm(urna) {
   document.getElementById("modalTitle").textContent =
-    `${urna.carrera} · Urna ${String(urna.numero).padStart(2,"0")}`;
+    `${urna.carrera} · Urna ${String(urna.numero).padStart(2,"00")}`;
   document.getElementById("modalSubtitle").textContent =
     `${urna.dia_label || urna.dia} · ID ${urna.urna_id}`;
 
   const body = document.getElementById("modalBody");
   const cerrada = urna.estado === "cerrada";
 
-  // Banner según estado
   const banner = cerrada
     ? `<div class="validation warn" style="margin-bottom:1rem;">
          🔒 <strong>Esta urna está cerrada.</strong> Los datos son finales. Si necesitás modificarlos, pedile a un admin que la reabra.
@@ -246,7 +241,6 @@ function renderRecuentoForm(urna) {
 
   body.innerHTML = banner + CATEGORIAS.map(cat => renderCategoriaBlock(cat, urna)).join("");
 
-  // Si está cerrada, todos los inputs readonly + botones adecuados
   if (cerrada) {
     body.querySelectorAll("input, button.stepper-btn").forEach(el => {
       if (el.tagName === "INPUT") el.setAttribute("readonly", "readonly");
@@ -263,7 +257,7 @@ function updateFooterForState(cerrada) {
   if (cerrada) {
     btnGuardar.classList.add("hidden");
     btnCerrar.classList.add("hidden");
-    btnEliminar.classList.add("hidden"); // fiscal no puede eliminar urna cerrada
+    btnEliminar.classList.add("hidden");
   } else {
     btnGuardar.classList.remove("hidden");
     btnCerrar.classList.remove("hidden");
@@ -334,9 +328,19 @@ document.getElementById("btnGuardar").addEventListener("click", async (e) => {
   }
 });
 
-// Cerrar urna: guarda + cambia estado a "cerrada" con warning fuerte
+// Cerrar urna: valida campos obligatorios, avisa y guarda con estado "cerrada"
 document.getElementById("btnCerrarUrna").addEventListener("click", async (e) => {
   if (!currentUrna) return;
+
+  // 👇 Validación: todos los campos deben estar completos antes de cerrar
+  const inputsVacios = [...document.querySelectorAll("#modalBody input.num")]
+    .filter(inp => inp.value === "" || inp.value === null);
+  if (inputsVacios.length > 0) {
+    toast(`Completá todos los campos antes de cerrar (${inputsVacios.length} sin llenar)`, "err");
+    inputsVacios[0].scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+
   const confirmado = confirm(
     "⚠️ ATENCIÓN — ¿Cerrar esta urna?\n\n" +
     "Una vez cerrada:\n" +
@@ -378,8 +382,7 @@ document.getElementById("btnEliminarUrna").addEventListener("click", async () =>
   }
 });
 
-// ---------------- Auto-refresh (polling cada 15s) ----------------
-// Para evitar que 2 fiscales creen la misma urna sin saberlo
+// ---------------- Auto-refresh (polling cada 30s) ----------------
 let fiscalAutoRefreshTimer = null;
 
 function startFiscalAutoRefresh() {
@@ -389,7 +392,7 @@ function startFiscalAutoRefresh() {
     if (!Session.isActive() || modalOpen) return;
     if (document.hidden) return;
     loadUrnas({ silent: true });
-  }, 30000); // 30 segundos — balance entre frescura y cuota de Apps Script
+  }, 30000);
 }
 function stopFiscalAutoRefresh() {
   if (fiscalAutoRefreshTimer) { clearInterval(fiscalAutoRefreshTimer); fiscalAutoRefreshTimer = null; }
