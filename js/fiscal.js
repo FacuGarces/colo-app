@@ -268,7 +268,7 @@ function updateFooterForState(cerrada) {
 function renderCategoriaBlock(cat, urna) {
   const listasHTML = LISTAS.map(l => {
     const fieldName = `${cat.id}_${l.id}`;
-    const value = urna[fieldName] || "";
+    const value = urna[fieldName] !== undefined && urna[fieldName] !== "" ? urna[fieldName] : 0;
     const destacada = l.destacada ? "destacada" : "";
     return `
       <div class="lista-row ${destacada}" style="--lista-color:${l.color}">
@@ -282,7 +282,7 @@ function renderCategoriaBlock(cat, urna) {
   }).join("");
   const extrasHTML = CAMPOS_EXTRA.map(f => {
     const fieldName = `${cat.id}_${f.id}`;
-    const value = urna[fieldName] || "";
+    const value = urna[fieldName] !== undefined && urna[fieldName] !== "" ? urna[fieldName] : 0;
     return `
       <div class="field">
         <label>${f.label}</label>
