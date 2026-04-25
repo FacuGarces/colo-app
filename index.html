@@ -74,12 +74,10 @@
             <label for="urnaNumero">N° urna</label>
             <input type="number" id="urnaNumero" min="1" placeholder="1" />
           </div>
-          <!-- ✅ CAMBIO: campo nuevo N° mesa -->
           <div class="field">
             <label for="urnaMesa">N° mesa</label>
             <input type="number" id="urnaMesa" min="1" placeholder="1" />
           </div>
-          <!-- ✅ FIN CAMBIO -->
           <button type="button" id="btnAbrirUrna" class="btn btn-primary">
             <span>Abrir urna</span>
           </button>
@@ -93,10 +91,43 @@
       <div class="card">
         <div class="card-header">
           <h2 class="card-title">Mis <span class="accent">urnas</span></h2>
-          <div class="row">
+          <div class="row" style="gap:0.5rem;align-items:center;">
+            <span class="card-meta" id="urnasContador"></span>
+            <span class="card-meta" id="lastRefreshLabel"></span>
             <button type="button" id="btnRefresh" class="btn btn-sm">↻ Refrescar</button>
           </div>
         </div>
+
+        <!-- Filtros -->
+        <div class="filters" style="margin-bottom:0.75rem;">
+          <input
+            type="search"
+            id="filterBusqueda"
+            class="filter-search"
+            placeholder="🔍 Buscar por carrera o ID..."
+          />
+          <select id="filterEstadoFiscal">
+            <option value="">Todos los estados</option>
+            <option value="abierta">Abierta</option>
+            <option value="cerrada">Cerrada</option>
+            <option value="pendiente">⚠ Pendiente cerrar</option>
+          </select>
+          <select id="filterDiaFiscal">
+            <option value="">Todos los días</option>
+            <option value="lunes">Lunes</option>
+            <option value="martes">Martes</option>
+            <option value="miercoles">Miércoles</option>
+            <option value="jueves">Jueves</option>
+            <option value="viernes">Viernes</option>
+          </select>
+          <select id="filterOrden">
+            <option value="reciente">Más reciente</option>
+            <option value="antigua">Más antigua</option>
+            <option value="carrera">Carrera A-Z</option>
+          </select>
+          <button type="button" id="btnLimpiarFiltros" class="btn btn-sm">✕ Limpiar</button>
+        </div>
+
         <div id="urnasList" class="urnas-list"></div>
         <div id="urnasEmpty" class="empty-state hidden">
           <div class="empty-state-title">Todavía no abriste ninguna urna</div>
