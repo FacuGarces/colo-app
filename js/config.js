@@ -19,7 +19,7 @@ const LISTAS = [
   { id: "lista12", numero: 12,  nombre: "El Torrente",          color: "#00b4d8", colorOscuro: "#005f73", logo: "assets/logos/lista12.jpeg" },
   { id: "lista13", numero: 13,  nombre: "Nuevo MAS",            color: "#d90429", colorOscuro: "#6d0217", logo: "assets/logos/lista13.jpeg" },
   { id: "lista17", numero: 17,  nombre: "JUP",                  color: "#0077b6", colorOscuro: "#003d5c", logo: "assets/logos/lista17.jpeg" },
-  { id: "lista22",  numero: "22", nombre: "Proyecto Medicina", color: "#8d99ae", colorOscuro: "#4a5062", logo: "assets/logos/listax.svg" },
+  { id: "listax",  numero: "22", nombre: "Proyecto Medicina", color: "#8d99ae", colorOscuro: "#4a5062", logo: "assets/logos/listax.svg" },
 ];
 
 const CARRERAS = [
