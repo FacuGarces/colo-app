@@ -37,6 +37,7 @@ const CARRERAS = [
   "Tec. Instrumentación Quirúrgica",
   "Tec. Prácticas Cardiológicas",
   "Tec. Radiología",
+  "CBC",
 ];
 
 const DIAS = [
