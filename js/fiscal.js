@@ -29,7 +29,6 @@ function renderIdentity() {
     signInSection.classList.remove("hidden");
     fSection.classList.add("hidden");
     badge.classList.add("hidden");
-    // Renderizar botón de Google
     Session.initSignInButton("googleSignInBtn").catch(err => {
       console.error(err);
       document.getElementById("googleSignInBtn").innerHTML =
@@ -38,7 +37,6 @@ function renderIdentity() {
   }
 }
 
-// Cuando cambia la sesión (login / logout), re-renderizar todo
 Session.onChange(renderIdentity);
 
 document.getElementById("btnLogout").addEventListener("click", () => {
@@ -53,19 +51,16 @@ function fillOpenerSelects() {
   selCarrera.innerHTML = CARRERAS.map(c => `<option value="${c}">${c}</option>`).join("");
   selDia.innerHTML = DIAS.map(d => `<option value="${d.id}">${d.label}</option>`).join("");
 
-  // Preseleccionar día actual si coincide
   const today = new Date().getDay();
   const map = { 1: "lunes", 2: "martes", 3: "miercoles", 4: "jueves", 5: "viernes" };
   if (map[today]) selDia.value = map[today];
 
-  // ✅ CAMBIO: agregado urnaMesa a los listeners
   [selCarrera, selDia, document.getElementById("urnaNumero"), document.getElementById("urnaMesa")].forEach(el => {
     el.addEventListener("input", updateIdPreview);
   });
   updateIdPreview();
 }
 
-// ✅ CAMBIO: agregado parámetro mesa al ID
 function buildUrnaId(carrera, dia, numero, mesa) {
   const n = toInt(numero);
   const m = toInt(mesa);
@@ -73,26 +68,33 @@ function buildUrnaId(carrera, dia, numero, mesa) {
   return `${slugify(carrera)}-${dia}-${String(n).padStart(2, "0")}-m${String(m).padStart(2, "0")}`;
 }
 
-// Cache de las urnas que el fiscal ya tiene abiertas (para detectar duplicados antes de crearlas)
+// Cache de las urnas que el fiscal ya tiene abiertas
 let urnasCache = [];
 
 function updateIdPreview() {
   const c = document.getElementById("urnaCarrera").value;
   const d = document.getElementById("urnaDia").value;
   const n = document.getElementById("urnaNumero").value;
-  // ✅ CAMBIO: lee urnaMesa
   const m = document.getElementById("urnaMesa").value;
-  const id = buildUrnaId(c, d, n, m);
+  const baseId = buildUrnaId(c, d, n, m);
   const previewEl = document.getElementById("previewId");
-  previewEl.textContent = id || "—";
 
-  // Si el ID ya existe entre mis urnas, mostrar warning visual
-  const existe = id && urnasCache.some(u => u.urna_id === id);
-  if (existe) {
+  if (!baseId) {
+    previewEl.textContent = "—";
+    previewEl.style.color = "var(--fmed-gold)";
+    return;
+  }
+
+  const repetidas = urnasCache.filter(u =>
+    u.urna_id === baseId || u.urna_id.startsWith(baseId + "-repetida")
+  ).length;
+
+  if (repetidas > 0) {
     previewEl.style.color = "var(--err)";
-    previewEl.textContent = id + " ⚠ ya tenés una abierta con ese ID";
+    previewEl.textContent = `${baseId}-repetida${repetidas} ⚠ ya hay ${repetidas} con esta base`;
   } else {
     previewEl.style.color = "var(--fmed-gold)";
+    previewEl.textContent = baseId;
   }
 }
 
@@ -108,25 +110,36 @@ document.getElementById("btnAbrirUrna").addEventListener("click", async (e) => {
   const carrera = document.getElementById("urnaCarrera").value;
   const dia = document.getElementById("urnaDia").value;
   const numero = toInt(document.getElementById("urnaNumero").value);
-  // ✅ CAMBIO: se lee y valida mesa
   const mesa = toInt(document.getElementById("urnaMesa").value);
   if (!carrera || !dia || !numero || !mesa) {
     toast("Completá carrera, día, número y mesa", "err");
     return;
   }
   const diaLabel = DIAS.find(d => d.id === dia)?.label || dia;
-  // ✅ CAMBIO: mesa incluida en el objeto urna
-  const urna = {
-    urna_id: buildUrnaId(carrera, dia, numero, mesa),
-    carrera, dia, dia_label: diaLabel, numero, mesa,
-  };
+  const baseId = buildUrnaId(carrera, dia, numero, mesa);
+
+  const repetidas = urnasCache.filter(u =>
+    u.urna_id === baseId || u.urna_id.startsWith(baseId + "-repetida")
+  ).length;
+
+  let urnaId = baseId;
+  if (repetidas > 0) {
+    const confirmado = confirm(
+      `⚠️ Ya existe una urna con el ID "${baseId}".\n\n` +
+      `Se va a crear como "${baseId}-repetida${repetidas}".\n\n` +
+      `¿Confirmás que es una urna repetida y querés crearla igual?`
+    );
+    if (!confirmado) return;
+    urnaId = `${baseId}-repetida${repetidas}`;
+  }
+
+  const urna = { urna_id: urnaId, carrera, dia, dia_label: diaLabel, numero, mesa };
   const btn = e.currentTarget;
   btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Abriendo...';
   try {
     await API.abrirUrna(urna);
-    toast(`Urna ${urna.urna_id} abierta`, "ok");
+    toast(`Urna ${urnaId} abierta${repetidas > 0 ? " (repetida)" : ""}`, "ok");
     document.getElementById("urnaNumero").value = "";
-    // ✅ CAMBIO: limpia también urnaMesa al abrir
     document.getElementById("urnaMesa").value = "";
     await loadUrnas();
   } catch (err) {
@@ -147,7 +160,9 @@ async function loadUrnas(opts = {}) {
   emptyEl.classList.add("hidden");
   try {
     const urnas = await API.listarUrnas();
-    renderUrnasList(urnas);
+    urnasCache = urnas || [];
+    updateIdPreview();
+    renderUrnasList();
     updateLastRefreshLabel();
   } catch (err) {
     if (!opts.silent) {
@@ -166,23 +181,77 @@ function updateLastRefreshLabel() {
   el.textContent = "actualizado " + now.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-function renderUrnasList(urnas) {
-  urnasCache = urnas || [];
-  updateIdPreview();
+// ---------------- Filtros ----------------
+function getFilterValues() {
+  return {
+    busqueda: (document.getElementById("filterBusqueda")?.value || "").toLowerCase().trim(),
+    estado:   document.getElementById("filterEstadoFiscal")?.value || "",
+    dia:      document.getElementById("filterDiaFiscal")?.value || "",
+    orden:    document.getElementById("filterOrden")?.value || "reciente",
+  };
+}
 
-  const listEl = document.getElementById("urnasList");
-  const emptyEl = document.getElementById("urnasEmpty");
-  if (!urnas || urnas.length === 0) {
-    listEl.innerHTML = "";
-    emptyEl.classList.remove("hidden");
+function applyFilters(urnas) {
+  const { busqueda, estado, dia, orden } = getFilterValues();
+
+  let result = urnas.filter(u => {
+    if (busqueda) {
+      const haystack = `${u.carrera} ${u.urna_id}`.toLowerCase();
+      if (!haystack.includes(busqueda)) return false;
+    }
+    if (estado) {
+      const estadoUrna = u.estado || "abierta";
+      if (estado === "pendiente") {
+        if (estadoUrna !== "abierta" || !urnaTieneDatos(u)) return false;
+      } else {
+        if (estadoUrna !== estado) return false;
+      }
+    }
+    if (dia && u.dia !== dia) return false;
+    return true;
+  });
+
+  result.sort((a, b) => {
+    if (orden === "reciente") return new Date(b.fecha_creacion || 0) - new Date(a.fecha_creacion || 0);
+    if (orden === "antigua")  return new Date(a.fecha_creacion || 0) - new Date(b.fecha_creacion || 0);
+    if (orden === "carrera")  return (a.carrera || "").localeCompare(b.carrera || "", "es");
+    return 0;
+  });
+
+  return result;
+}
+
+function renderUrnasList() {
+  const listEl     = document.getElementById("urnasList");
+  const emptyEl    = document.getElementById("urnasEmpty");
+  const contadorEl = document.getElementById("urnasContador");
+
+  const filtradas = applyFilters(urnasCache);
+
+  if (contadorEl) {
+    contadorEl.textContent = filtradas.length === urnasCache.length
+      ? `${urnasCache.length} urna${urnasCache.length !== 1 ? "s" : ""}`
+      : `${filtradas.length} de ${urnasCache.length}`;
+  }
+
+  if (!filtradas.length) {
+    listEl.innerHTML = urnasCache.length === 0
+      ? ""
+      : '<div class="text-dim text-mono" style="padding:1rem 0;">Ninguna urna coincide con los filtros.</div>';
+    emptyEl.classList.toggle("hidden", urnasCache.length > 0);
     return;
   }
+
   emptyEl.classList.add("hidden");
-  listEl.innerHTML = urnas.map(u => {
-    const estado = u.estado || 'abierta';
+  listEl.innerHTML = filtradas.map(u => {
+    const estado = u.estado || "abierta";
     const tieneDatos = urnaTieneDatos(u);
+    const esRepetida = u.urna_id.includes("-repetida");
     const pendienteChip = estado === "abierta" && tieneDatos
       ? `<span class="chip state-pendiente" title="Con datos cargados pero todavía abierta">⚠ pendiente cerrar</span>`
+      : "";
+    const repetidaChip = esRepetida
+      ? `<span class="chip state-warn" title="Urna repetida">⚠ repetida</span>`
       : "";
     return `
       <div class="urna-card" data-id="${u.urna_id}">
@@ -191,16 +260,17 @@ function renderUrnasList(urnas) {
           <span class="chip">${u.dia_label || u.dia}</span>
           <span class="chip state-${estado}">${estado}</span>
           ${pendienteChip}
+          ${repetidaChip}
         </div>
         <div class="text-mono text-dim" style="font-size:0.7rem;">${u.urna_id}</div>
       </div>`;
   }).join("");
+
   listEl.querySelectorAll(".urna-card").forEach(card => {
     card.addEventListener("click", () => openRecuentoModal(card.dataset.id));
   });
 }
 
-// Chequea si la urna tiene al menos un valor numérico cargado
 function urnaTieneDatos(u) {
   for (const cat of CATEGORIAS) {
     for (const l of LISTAS) {
@@ -213,12 +283,23 @@ function urnaTieneDatos(u) {
   return false;
 }
 
+["filterBusqueda", "filterEstadoFiscal", "filterDiaFiscal", "filterOrden"].forEach(id => {
+  document.getElementById(id)?.addEventListener("input", renderUrnasList);
+});
+document.getElementById("btnLimpiarFiltros")?.addEventListener("click", () => {
+  document.getElementById("filterBusqueda").value = "";
+  document.getElementById("filterEstadoFiscal").value = "";
+  document.getElementById("filterDiaFiscal").value = "";
+  document.getElementById("filterOrden").value = "reciente";
+  renderUrnasList();
+});
+
 document.getElementById("btnRefresh").addEventListener("click", loadUrnas);
 
 // ---------------- Modal recuento ----------------
 async function openRecuentoModal(urna_id) {
   const modal = document.getElementById("modalRecuento");
-  const body = document.getElementById("modalBody");
+  const body  = document.getElementById("modalBody");
   document.getElementById("modalTitle").textContent = "Cargando urna...";
   body.innerHTML = '<div class="text-dim text-mono">Obteniendo datos...</div>';
   modal.classList.add("open");
@@ -238,7 +319,7 @@ function renderRecuentoForm(urna) {
   document.getElementById("modalSubtitle").textContent =
     `${urna.dia_label || urna.dia} · ID ${urna.urna_id}`;
 
-  const body = document.getElementById("modalBody");
+  const body    = document.getElementById("modalBody");
   const cerrada = urna.estado === "cerrada";
 
   const banner = cerrada
@@ -249,20 +330,59 @@ function renderRecuentoForm(urna) {
          💡 Recordá apretar <strong>"Cerrar urna"</strong> cuando termines el escrutinio. Si todavía estás cargando, usá <strong>"Guardar"</strong> para ir salvando parcialmente.
        </div>`;
 
-  body.innerHTML = banner + CATEGORIAS.map(cat => renderCategoriaBlock(cat, urna)).join("");
+  // Renderizar los dos bloques con los botones de copia entre ellos
+  const [catCD, catCE] = CATEGORIAS; // asume que CD es primero, CE segundo
+  const bloqueCD = renderCategoriaBlock(catCD, urna);
+  const bloqueCE = renderCategoriaBlock(catCE, urna);
+
+  // Botones de copia (solo si la urna está abierta)
+  const botonesCopiado = cerrada ? "" : `
+    <div class="copy-votos-bar" style="display:flex;gap:0.5rem;justify-content:center;align-items:center;padding:0.75rem 0;border-top:1px solid rgba(255,255,255,0.07);border-bottom:1px solid rgba(255,255,255,0.07);margin:0.5rem 0;">
+      <span class="text-dim text-mono" style="font-size:0.75rem;">Copiar votos:</span>
+      <button type="button" class="btn btn-sm" id="btnCopiarCDaCE" title="Copiar todos los votos del Consejo Directivo al Centro de Estudiantes">
+        CD → CE
+      </button>
+      <button type="button" class="btn btn-sm" id="btnCopiarCEaCD" title="Copiar todos los votos del Centro de Estudiantes al Consejo Directivo">
+        CE → CD
+      </button>
+    </div>`;
+
+  body.innerHTML = banner + bloqueCD + botonesCopiado + bloqueCE;
 
   if (cerrada) {
     body.querySelectorAll("input, button.stepper-btn").forEach(el => {
       if (el.tagName === "INPUT") el.setAttribute("readonly", "readonly");
       if (el.tagName === "BUTTON") el.setAttribute("disabled", "disabled");
     });
+  } else {
+    // Listeners de los botones de copia
+    document.getElementById("btnCopiarCDaCE")?.addEventListener("click", () => copiarVotos("cd", "ce"));
+    document.getElementById("btnCopiarCEaCD")?.addEventListener("click", () => copiarVotos("ce", "cd"));
   }
+
   updateFooterForState(cerrada);
 }
 
+// Copia los valores de todos los inputs de una categoría a la otra
+function copiarVotos(origen, destino) {
+  const campos = [
+    ...LISTAS.map(l => l.id),
+    ...CAMPOS_EXTRA.map(f => f.id),
+  ];
+  campos.forEach(campo => {
+    const inputOrigen  = document.querySelector(`#modalBody input[name="${origen}_${campo}"]`);
+    const inputDestino = document.querySelector(`#modalBody input[name="${destino}_${campo}"]`);
+    if (inputOrigen && inputDestino) {
+      inputDestino.value = inputOrigen.value;
+    }
+  });
+  const label = destino === "ce" ? "Centro de Estudiantes" : "Consejo Directivo";
+  toast(`Votos copiados al ${label}`, "ok");
+}
+
 function updateFooterForState(cerrada) {
-  const btnGuardar = document.getElementById("btnGuardar");
-  const btnCerrar = document.getElementById("btnCerrarUrna");
+  const btnGuardar  = document.getElementById("btnGuardar");
+  const btnCerrar   = document.getElementById("btnCerrarUrna");
   const btnEliminar = document.getElementById("btnEliminarUrna");
   if (cerrada) {
     btnGuardar.classList.add("hidden");
@@ -338,11 +458,9 @@ document.getElementById("btnGuardar").addEventListener("click", async (e) => {
   }
 });
 
-// Cerrar urna: valida campos obligatorios, avisa y guarda con estado "cerrada"
 document.getElementById("btnCerrarUrna").addEventListener("click", async (e) => {
   if (!currentUrna) return;
 
-  // 👇 Validación: todos los campos deben estar completos antes de cerrar
   const inputsVacios = [...document.querySelectorAll("#modalBody input.num")]
     .filter(inp => inp.value === "" || inp.value === null);
   if (inputsVacios.length > 0) {
@@ -408,7 +526,6 @@ function stopFiscalAutoRefresh() {
   if (fiscalAutoRefreshTimer) { clearInterval(fiscalAutoRefreshTimer); fiscalAutoRefreshTimer = null; }
 }
 
-// Cuando volvés a la pestaña, refrescar inmediatamente
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Session.isActive()) {
     const modalOpen = document.getElementById("modalRecuento")?.classList.contains("open");
