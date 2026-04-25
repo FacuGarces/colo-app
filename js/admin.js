@@ -6,7 +6,7 @@
 let allUrnas = [];
 let autoRefreshTimer = null;
 let currentEdit = null;
-let adminProfile = null; // { email, name, picture, isAdmin, ... } desde whoami
+let adminProfile = null;
 
 // ---------------- Gate de admin ----------------
 async function renderAdminGate() {
@@ -17,7 +17,6 @@ async function renderAdminGate() {
   const profile = Session.getProfile();
 
   if (!Session.isActive() || !profile) {
-    // No logueado: mostrar botón de Google
     signIn.classList.remove("hidden");
     notAdmin.classList.add("hidden");
     dash.classList.add("hidden");
@@ -30,7 +29,6 @@ async function renderAdminGate() {
     return;
   }
 
-  // Logueado: preguntarle al backend si es admin
   try {
     const who = await API.whoami();
     adminProfile = who;
@@ -42,7 +40,6 @@ async function renderAdminGate() {
       document.getElementById("notAdminEmail").textContent = who.email;
       return;
     }
-    // Es admin: mostrar dashboard
     signIn.classList.add("hidden");
     notAdmin.classList.add("hidden");
     dash.classList.remove("hidden");
@@ -136,20 +133,24 @@ function renderAll() {
 function renderStats(urnas, cat) {
   const abiertas = urnas.filter(u => (u.estado || "abierta") === "abierta").length;
   const cerradas = urnas.filter(u => u.estado === "cerrada").length;
-  let votantes = 0, sobres = 0, otros = 0;
+  let votantes = 0, totalVotos = 0, otros = 0;
   urnas.forEach(u => {
     votantes += toInt(u[`${cat}_total_votantes`]);
-    sobres += toInt(u[`${cat}_total_sobres`]);
-    otros += toInt(u[`${cat}_blancos`]) + toInt(u[`${cat}_nulos`])
-           + toInt(u[`${cat}_impugnados`]) + toInt(u[`${cat}_recurridos`]);
+    // ✅ CAMBIO: totalVotos es la suma de votos de todas las listas (no total_sobres)
+    LISTAS.forEach(l => { totalVotos += toInt(u[`${cat}_${l.id}`]); });
+    otros += toInt(u[`${cat}_blancos`]) + toInt(u[`${cat}_nulos`]);
   });
+
   document.getElementById("statUrnas").textContent = fmt(urnas.length);
   document.getElementById("statUrnasSub").textContent = `${abiertas} abiertas · ${cerradas} cerradas`;
   document.getElementById("statVotantes").textContent = fmt(votantes);
-  document.getElementById("statSobres").textContent = fmt(sobres);
+
+  // ✅ CAMBIO: mostrar total de votos de partidos en lugar de sobres
+  document.getElementById("statSobres").textContent = fmt(totalVotos);
+
   document.getElementById("statOtros").textContent = fmt(otros);
-  const pctOtros = sobres > 0 ? ((otros / sobres) * 100).toFixed(1) : "0.0";
-  document.getElementById("statOtrosSub").textContent = `${pctOtros}% sobre sobres totales`;
+  const pctOtros = totalVotos > 0 ? ((otros / totalVotos) * 100).toFixed(1) : "0.0";
+  document.getElementById("statOtrosSub").textContent = `${pctOtros}% sobre total de votos`;
 }
 
 function renderResultsTable(urnas, cat) {
