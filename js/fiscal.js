@@ -58,16 +58,19 @@ function fillOpenerSelects() {
   const map = { 1: "lunes", 2: "martes", 3: "miercoles", 4: "jueves", 5: "viernes" };
   if (map[today]) selDia.value = map[today];
 
-  [selCarrera, selDia, document.getElementById("urnaNumero")].forEach(el => {
+  // ✅ CAMBIO: agregado urnaMesa a los listeners
+  [selCarrera, selDia, document.getElementById("urnaNumero"), document.getElementById("urnaMesa")].forEach(el => {
     el.addEventListener("input", updateIdPreview);
   });
   updateIdPreview();
 }
 
-function buildUrnaId(carrera, dia, numero) {
+// ✅ CAMBIO: agregado parámetro mesa al ID
+function buildUrnaId(carrera, dia, numero, mesa) {
   const n = toInt(numero);
-  if (!carrera || !dia || !n) return "";
-  return `${slugify(carrera)}-${dia}-${String(n).padStart(2, "0")}`;
+  const m = toInt(mesa);
+  if (!carrera || !dia || !n || !m) return "";
+  return `${slugify(carrera)}-${dia}-${String(n).padStart(2, "0")}-m${String(m).padStart(2, "0")}`;
 }
 
 // Cache de las urnas que el fiscal ya tiene abiertas (para detectar duplicados antes de crearlas)
@@ -77,7 +80,9 @@ function updateIdPreview() {
   const c = document.getElementById("urnaCarrera").value;
   const d = document.getElementById("urnaDia").value;
   const n = document.getElementById("urnaNumero").value;
-  const id = buildUrnaId(c, d, n);
+  // ✅ CAMBIO: lee urnaMesa
+  const m = document.getElementById("urnaMesa").value;
+  const id = buildUrnaId(c, d, n, m);
   const previewEl = document.getElementById("previewId");
   previewEl.textContent = id || "—";
 
@@ -103,14 +108,17 @@ document.getElementById("btnAbrirUrna").addEventListener("click", async (e) => {
   const carrera = document.getElementById("urnaCarrera").value;
   const dia = document.getElementById("urnaDia").value;
   const numero = toInt(document.getElementById("urnaNumero").value);
-  if (!carrera || !dia || !numero) {
-    toast("Completá carrera, día y número", "err");
+  // ✅ CAMBIO: se lee y valida mesa
+  const mesa = toInt(document.getElementById("urnaMesa").value);
+  if (!carrera || !dia || !numero || !mesa) {
+    toast("Completá carrera, día, número y mesa", "err");
     return;
   }
   const diaLabel = DIAS.find(d => d.id === dia)?.label || dia;
+  // ✅ CAMBIO: mesa incluida en el objeto urna
   const urna = {
-    urna_id: buildUrnaId(carrera, dia, numero),
-    carrera, dia, dia_label: diaLabel, numero,
+    urna_id: buildUrnaId(carrera, dia, numero, mesa),
+    carrera, dia, dia_label: diaLabel, numero, mesa,
   };
   const btn = e.currentTarget;
   btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Abriendo...';
@@ -118,6 +126,8 @@ document.getElementById("btnAbrirUrna").addEventListener("click", async (e) => {
     await API.abrirUrna(urna);
     toast(`Urna ${urna.urna_id} abierta`, "ok");
     document.getElementById("urnaNumero").value = "";
+    // ✅ CAMBIO: limpia también urnaMesa al abrir
+    document.getElementById("urnaMesa").value = "";
     await loadUrnas();
   } catch (err) {
     handleApiError(err);
